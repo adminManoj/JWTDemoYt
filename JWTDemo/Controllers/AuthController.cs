@@ -12,29 +12,41 @@ namespace JWTDemo.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly UserDAL _dal;
         public AuthController(IConfiguration configuration)
         {
             _configuration = configuration;
+            _dal = new UserDAL(configuration);
         }
 
         [HttpPost("login")]
         public IActionResult Login([FromBody] UserLogin login)
         {
-            if (login.Username == "admin" && login.Password == "admin")
+            var user = _dal.validateUser(login.Username, login.Password);
+
+            if (user == null)
             {
-                var token = GenerateToken();
-                return Ok(new { Token = token });
+                return Unauthorized("Invalid credentials");
             }
-            return Unauthorized();
+
+            var token = GenerateToken(user);
+            return Ok(new { Token = token });
+
+            //if (login.Username == "admin" && login.Password == "admin")
+            //{
+            //    var token = GenerateToken();
+            //    return Ok(new { Token = token });
+            //}
+            //return Unauthorized();
         }
 
-        private string GenerateToken()
+        private string GenerateToken(UserModel user)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings").Get<JwtSettings>();
             var claims = new[]
             {
-            new Claim(ClaimTypes.Name, "admin"),
-            new Claim(ClaimTypes.Role, "Admin")
+            new Claim(ClaimTypes.Name, user.Username),
+            new Claim(ClaimTypes.Role, user.Role)
         };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key));
